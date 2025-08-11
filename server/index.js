@@ -1,5 +1,5 @@
 // server/index.js - NEW VERSION FOR PRIVATE CHAT
-
+const messageRoutes = require('./routes/messages');
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -7,7 +7,6 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 const mongoose = require('mongoose');
 const userRoutes = require('./routes/users');
-const messageRoutes = require('./routes/messages');
 // --- Basic Setup ---
 const app = express();
 app.use(cors());
