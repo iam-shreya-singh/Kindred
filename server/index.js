@@ -9,7 +9,15 @@ const mongoose = require('mongoose');
 const userRoutes = require('./routes/users');
 // --- Basic Setup ---
 const app = express();
-app.use(cors());
+//resolve CORS issues
+// server/index.js
+
+// This gives the browser explicit permission for everything we need.
+app.use(cors({
+  origin: "*", // Or you can put your specific frontend URL
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 const PORT = process.env.PORT || 3001;
 
