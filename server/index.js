@@ -7,7 +7,8 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 const mongoose = require('mongoose');
 const userRoutes = require('./routes/users');
-
+const userRoutes = require('./routes/users');
+const messageRoutes = require('./routes/messages');
 // --- Basic Setup ---
 const app = express();
 app.use(cors());
@@ -21,6 +22,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 // --- API Routes ---
 app.use('/api/users', userRoutes);
+app.use('/api/messages', messageRoutes);
 
 // --- Socket.IO and Server Setup ---
 const server = http.createServer(app);
