@@ -3,7 +3,7 @@ import io from 'socket.io-client';
 
 // Connect to your backend server
 
-const socket = io("https://bug-free-space-parakeet-jgg754q94jrc576w-3001.app.github.dev");
+const socket = io("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/");
 function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
 
