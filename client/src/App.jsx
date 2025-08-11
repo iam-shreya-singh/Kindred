@@ -5,18 +5,20 @@ import Register from './pages/Register';
 import Login from './pages/Login'; 
 import Chat from './pages/Chat';
 
+function App() {
+  // Simple check to see if we have a token
+  const token = localStorage.getItem('token');
 
-  function App() {
   return (
     <Routes>
+      {/* If logged in, the root path '/' goes to Chat. Otherwise, it goes to Login. */}
       <Route path="/" element={token ? <Chat /> : <Navigate to="/login" />} />
-
-      <Route path="/register" element={<Register />} />
-      <Route path="/login" element={<Login />} /> {/* 2. Use the Login component */}
       
-      {/* 3. Let's change the default redirect to /login now */}
-      <Route path="/" element={<Navigate to="/login" />} /> 
+      {/* If logged in, trying to go to /login or /register redirects to Chat. */}
+      <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
+      <Route path="/register" element={token ? <Navigate to="/" /> : <Register />} />
     </Routes>
   );
 }
-export default App;
+
+  export default App;
