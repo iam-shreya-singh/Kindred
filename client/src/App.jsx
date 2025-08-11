@@ -5,32 +5,62 @@ import io from 'socket.io-client';
 
 const socket = io("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/");
 function App() {
-  const [isConnected, setIsConnected] = useState(socket.connected);
+  
+ const [currentMessage, setCurrentMessage] = useState("");
+  const [messageList, setMessageList] = useState([]);
 
-  useEffect(() => {
-    // Listen for the 'connect' event
-    socket.on('connect', () => {
-      console.log("Connected to server!");
-      setIsConnected(true);
-    });
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (currentMessage !== "") {
+      const messageData = {
+        message: currentMessage,
+        time: new Date(Date.now()).toLocaleTimeString(),
+      };
+      
+      await socket.emit("send_message", messageData);
+      setCurrentMessage(""); // Clear the input box
+    }
+  };
 
-    // Listen for the 'disconnect' event
-    socket.on('disconnect', () => {
-      console.log("Disconnected from server!");
-      setIsConnected(false);
-    });
-
-    // Clean up the event listeners when the component unmounts
-    return () => {
-      socket.off('connect');
-      socket.off('disconnect');
+   useEffect(() => {
+    // Function to handle receiving a message
+    const receiveMessageHandler = (data) => {
+      setMessageList((list) => [...list, data]);
     };
-  }, []);
+
+    // Set up the event listener
+    socket.on("receive_message", receiveMessageHandler);
+
+    // Clean up the listener when the component unmounts
+    return () => {
+      socket.off("receive_message", receiveMessageHandler);
+    };
+  }, []); // Run this effect only once
 
   return (
     <div className="App">
-      <h1>Welcome to Kindred</h1>
-      <h2>Connection Status: {isConnected ? 'Connected ✅' : 'Disconnected ❌'}</h2>
+      <div className="chat-header">
+        <h2>Kindred Global Chat</h2>
+      </div>
+      <div className="chat-body">
+        {messageList.map((msg, index) => (
+          <div key={index} className="message">
+            <p className="message-content">{msg.message}</p>
+            <p className="message-meta">{msg.time}</p>
+          </div>
+        ))}
+      </div>
+      <div className="chat-footer">
+        <form onSubmit={sendMessage}>
+          <input
+            type="text"
+            value={currentMessage}
+            placeholder="What's on your mind?"
+            onChange={(e) => setCurrentMessage(e.target.value)}
+          />
+          <button type="submit">➤</button>
+        </form>
+      </div>
     </div>
   );
 }
