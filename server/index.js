@@ -1,41 +1,28 @@
-// First things first, let's pull in our secrets (like the database password)
-// from the .env file so we don't have to hard-code them.
-require('dotenv').config();
+// server/index.js - NEW VERSION FOR PRIVATE CHAT
 
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
-// Our new tool for talking to MongoDB.
 const mongoose = require('mongoose');
-
-// We'll bring in the new routes we created for user-related stuff.
 const userRoutes = require('./routes/users');
 
-// Standard server setup.
+// --- Basic Setup ---
 const app = express();
 app.use(cors());
-// This is an important new piece. It's like a translator that lets our server
-// understand the JSON data (username, password) we'll be sending from the frontend forms.
 app.use(express.json());
-
 const PORT = process.env.PORT || 3001;
 
-// Alright, let's try to connect to our MongoDB database.
-// If it works, we'll see a happy message in the console. If not, we'll see an error.
+// --- DB Connection ---
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Looks like we're connected to MongoDB!"))
-  .catch(err => console.error("❌ Uh oh, MongoDB connection error:", err));
+  .then(() => console.log("✅ MongoDB connected successfully"))
+  .catch(err => console.error("❌ MongoDB connection error:", err));
 
-
-// Here's where we tell Express how to handle certain requests.
-// If a request comes in for "/api/users/register", for example,
-// Express will pass it off to our 'userRoutes' file to deal with it. This keeps our main file clean.
+// --- API Routes ---
 app.use('/api/users', userRoutes);
 
-
-// All the real-time chat stuff still lives here.
-// We'll keep it as-is for now and come back to it when we build private messaging.
+// --- Socket.IO and Server Setup ---
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -44,20 +31,67 @@ const io = new Server(server, {
   }
 });
 
-io.on('connection', (socket) => {
-  console.log(`A new friend connected: ${socket.id}`);
+// --- Managing Online Users ---
+// We need a way to map a userId to their unique socketId.
+let onlineUsers = [];
 
-  socket.on('send_message', (data) => {
-    console.log('Got a message, sending it to everyone:', data);
-    io.emit('receive_message', data);
+const addUser = (userId, socketId) => {
+  // If the user isn't already in our list, add them.
+  !onlineUsers.some(user => user.userId === userId) &&
+    onlineUsers.push({ userId, socketId });
+};
+
+const removeUser = (socketId) => {
+  onlineUsers = onlineUsers.filter(user => user.socketId !== socketId);
+};
+
+const getUser = (userId) => {
+  return onlineUsers.find(user => user.userId === userId);
+};
+
+// --- Real-time Logic ---
+io.on('connection', (socket) => {
+  // A user connects...
+  console.log(`A user connected: ${socket.id}`);
+
+  // ** NEW: A user tells us who they are **
+  // We expect the client to send an 'addUser' event with their userId.
+  socket.on("addUser", (userId) => {
+    addUser(userId, socket.id);
+    // Send the updated list of online users to all clients.
+    io.emit("getUsers", onlineUsers);
+    console.log("Online users:", onlineUsers);
   });
 
+  // ** NEW: A user sends a private message **
+  socket.on("sendMessage", ({ senderId, receiverId, text }) => {
+    // Find the receiver in our online users list.
+    const receiver = getUser(receiverId);
+    
+    // If the receiver is online, send the message directly to them.
+    if (receiver) {
+      io.to(receiver.socketId).emit("getMessage", {
+        senderId,
+        text,
+      });
+      console.log(`Sent message from ${senderId} to ${receiverId}`);
+    } else {
+      // (Future feature): If the user is offline, we could save this message
+      // to the database as an "unread" message. For now, we do nothing.
+      console.log(`User ${receiverId} is not online.`);
+    }
+  });
+
+  // A user disconnects...
   socket.on('disconnect', () => {
-    console.log(`A friend disconnected: ${socket.id}`);
+    console.log(`A user disconnected: ${socket.id}`);
+    removeUser(socket.id);
+    // Send the updated list of online users to all clients.
+    io.emit("getUsers", onlineUsers);
   });
 });
 
-// And finally, we start our server and listen for incoming requests.
+// --- Start Server ---
 server.listen(PORT, () => {
   console.log(`✅ Server is up and running on port ${PORT}`);
 });
