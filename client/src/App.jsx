@@ -2,23 +2,21 @@
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Register from './pages/Register';
-// We'll create these pages next
-// import Login from './pages/Login'; 
-// import Chat from './pages/Chat';
+import Login from './pages/Login'; 
+import Chat from './pages/Chat';
 
-function App() {
+
+  function App() {
   return (
     <Routes>
-      {/* The /register route will show our new Register component */}
+      <Route path="/" element={token ? <Chat /> : <Navigate to="/login" />} />
+
       <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Login />} /> {/* 2. Use the Login component */}
       
-      {/* For now, the /login route will just show a simple message */}
-      <Route path="/login" element={<h1>Login Page (Coming Soon!)</h1>} />
-      
-      {/* We'll make the root path redirect to register for now */}
-      <Route path="/" element={<Navigate to="/register" />} />
+      {/* 3. Let's change the default redirect to /login now */}
+      <Route path="/" element={<Navigate to="/login" />} /> 
     </Routes>
   );
 }
-
 export default App;
