@@ -28,6 +28,12 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`User Connected: ${socket.id}`);
 
+// Handle incoming messages from clients
+ socket.on('send_message', (data) => {
+    console.log('Message received:', data);
+    io.emit('receive_message', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('User Disconnected', socket.id);
   });
