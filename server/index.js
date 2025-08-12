@@ -76,6 +76,21 @@ io.on('connection', (socket) => {
     // Find the receiver in our online users list.
     const receiver = getUser(receiverId);
     
+    // ** NEW: Handle "is typing" indicator **
+  socket.on("typing_start", ({ senderId, receiverId }) => {
+    const receiver = getUser(receiverId);
+    if (receiver) {
+      io.to(receiver.socketId).emit("typing_start_from_server", { senderId });
+    }
+  });
+
+  socket.on("typing_stop", ({ senderId, receiverId }) => {
+    const receiver = getUser(receiverId);
+    if (receiver) {
+      io.to(receiver.socketId).emit("typing_stop_from_server", { senderId });
+    }
+  });
+
     // If the receiver is online, send the message directly to them.
     if (receiver) {
       io.to(receiver.socketId).emit("getMessage", {
@@ -89,7 +104,8 @@ io.on('connection', (socket) => {
       console.log(`User ${receiverId} is not online.`);
     }
   });
-
+  
+  
   // A user disconnects...
   socket.on('disconnect', () => {
     console.log(`A user disconnected: ${socket.id}`);
