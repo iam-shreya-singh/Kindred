@@ -7,6 +7,7 @@ import { io } from "socket.io-client";
 import {
   Box, Button, VStack, HStack, Heading, Container, Text, Avatar, Spinner, Flex, Divider, Input, keyframes
 } from '@chakra-ui/react';
+import { format } from 'timeago.js'; 
 
 const bounce = keyframes`
   0%, 100% { transform: translateY(0); }
@@ -162,10 +163,25 @@ const Chat = () => {
           {currentChat ? (
             <>
               <Box p={4} bg="gray.100" borderBottomWidth={1}><Heading size="lg">{currentChat.username}</Heading></Box>
-              <VStack flex="1" p={4} overflowY="auto" spacing={4} align="start">
-                {messages.map((m, index) => ( <Box key={index} ref={scrollRef} alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}><Box bg={m.senderId === currentUser._id ? "teal.400" : "gray.200"} color={m.senderId === currentUser._id ? "white" : "black"} px={4} py={2} borderRadius="lg" maxW="md"><Text>{m.text}</Text></Box></Box>))}
-                {isTyping && (<HStack spacing={2} alignSelf="flex-start"><Avatar size="xs" name={currentChat.username} /><HStack spacing={1} bg="gray.200" px={3} py={2} borderRadius="lg"><Box w="6px" h="6px" bg="gray.500" borderRadius="full" animation={`${bounce} 1s infinite`} /><Box w="6px" h="6px" bg="gray.500" borderRadius="full" animation={`${bounce} 1s infinite 0.2s`} /><Box w="6px" h="6px" bg="gray.500" borderRadius="full" animation={`${bounce} 1s infinite 0.4s`} /></HStack></HStack>)}
-              </VStack>
+              
+              <VStack flex="1" p={4} overflowY="auto" spacing={1} align="stretch"> {/* Changed spacing to 1 and align to stretch */}
+  {messages.map((m, index) => (
+    <Flex key={index} ref={scrollRef} direction="column" alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}>
+      <Box 
+        bg={m.senderId === currentUser._id ? "teal.400" : "gray.200"} 
+        color={m.senderId === currentUser._id ? "white" : "black"} 
+        px={4} py={2} borderRadius="lg" maxW="md"
+      >
+        <Text>{m.text}</Text>
+      </Box>
+      <Text fontSize="xs" color="gray.500" mt={1} alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}>
+        {format(m.createdAt)}
+      </Text>
+    </Flex>
+  ))}
+  {/* The typing indicator code can stay here */}
+</VStack>
+
               <Box p={4} borderTopWidth={1}>
                 <form onSubmit={handleSubmit}>
                   <HStack>
