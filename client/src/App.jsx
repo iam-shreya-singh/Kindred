@@ -17,6 +17,10 @@ function App() {
       {/* If logged in, trying to go to /login or /register redirects to Chat. */}
       <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
       <Route path="/register" element={token ? <Navigate to="/" /> : <Register />} />
+      
+       {/* 2. Add the new profile route */}
+      <Route path="/profile/:userId" element={token ? <Profile /> : <Navigate to="/login" />} />
+
     </Routes>
   );
 }

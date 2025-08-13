@@ -1,5 +1,5 @@
 // client/src/pages/Chat.jsx - FINAL ROBUST VERSION
-
+import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -138,7 +138,8 @@ const Chat = () => {
                 {messages.map((m, index) => (<Flex key={index} ref={scrollRef} direction="column" alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}><Box bg={m.senderId === currentUser._id ? "teal.400" : "gray.200"} color={m.senderId === currentUser._id ? "white" : "black"} px={4} py={2} borderRadius="lg" maxW="md"><Text>{m.text}</Text></Box><Text fontSize="xs" color="gray.500" mt={1} alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}>{format(m.createdAt)}</Text></Flex>))}
               </VStack>
               <Box p={4} borderTopWidth={1}>
-                <form onSubmit={handleSubmit}><HStack><Input placeholder="Type something..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} /><Button type="submit" colorScheme="teal">Send</Button></HStack></form>
+                <form onSubmit={handleSubmit}>
+                <HStack><Input placeholder="Type something..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} /><Button type="submit" colorScheme="teal">Send</Button></HStack></form>
               </Box>
             </>
           ) : (<Flex justifyContent="center" alignItems="center" h="full"><Text fontSize="xl" color="gray.400">Select a conversation to start chatting</Text></Flex>)}
