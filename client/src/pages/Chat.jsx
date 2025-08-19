@@ -6,7 +6,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'timeago.js';
 import {
-  Box, Button, VStack, HStack, Heading, Container, Text, Avatar, Spinner, Flex, Divider, Input
+  Box, Button, VStack, HStack, Heading, Container, Text, Avatar, Spinner, Flex
 } from '@chakra-ui/react';
 import { initiateSocketConnection, getSocket, disconnectSocket } from '../socket';
 
@@ -14,8 +14,6 @@ const icebreakerPrompts = [
   "What's a small thing that brought you joy this week?",
   "Is there a book, movie, or song that has deeply influenced you recently?",
   "What's a skill you'd love to learn if you had the time?",
-  "If you could give your younger self one piece of advice, what would it be?",
-  "What's a topic you could talk about for hours?",
 ];
 
 const Chat = ({ onLogout }) => {
@@ -31,43 +29,48 @@ const Chat = ({ onLogout }) => {
   
   // --- Refs ---
   const scrollRef = useRef();
-  const currentChatRef = useRef(null); // Ref to hold current chat value for listeners
+  // This ref is CRITICAL. It lets us access the current chat inside our socket listeners
+  // without needing to add it as a dependency to the main useEffect.
+  const currentChatRef = useRef(null);
 
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem('user'));
 
-  // Keep the ref in sync with the state
-  useEffect(() => {
-    currentChatRef.current = currentChat;
-  }, [currentChat]);
-
   // --- useEffect Hooks ---
 
-  // 1. Main Effect for Socket, Listeners, and User Fetching (runs ONCE)
+  // Main Effect for Socket, Listeners, and User Fetching.
+  // This hook has an empty dependency array `[]`. It will run ONLY ONCE.
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
-      return;
+      return; // Stop execution if no user
     }
 
     const socket = initiateSocketConnection();
 
+    // SETUP ALL LISTENERS HERE, ONCE AND FOR ALL
     socket.on("getUsers", (users) => {
       setOnlineUsers(users);
     });
 
     const messageListener = (data) => {
+      // Use the ref to get the most up-to-date value of the current chat
       const activeChat = currentChatRef.current;
+      
       if (activeChat?._id === data.senderId) {
+        // If the message is for the chat we're looking at, add it to the messages
         setMessages((prev) => [...prev, { senderId: data.senderId, text: data.text, createdAt: Date.now() }]);
       } else {
+        // Otherwise, it's a notification for another chat
         setNotifications(prev => prev.includes(data.senderId) ? prev : [...prev, data.senderId]);
       }
     };
     socket.on("getMessage", messageListener);
     
+    // Announce our presence to the server
     socket.emit("addUser", currentUser._id);
 
+    // Fetch all users
     const getUsers = async () => {
       try {
         const res = await axios.get("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/users");
@@ -76,15 +79,20 @@ const Chat = ({ onLogout }) => {
     };
     getUsers();
 
+    // The cleanup function. This will run ONLY when you navigate away from the chat page for good.
     return () => {
-      socket.off("getMessage", messageListener);
+      socket.off("getMessage", messageListener); // Remove the specific listener
       socket.off("getUsers");
       disconnectSocket();
     };
-  }, [currentUser, navigate]);
+  }, []); // <-- The empty dependency array is the key to preventing loops.
 
+  // This separate effect keeps our ref in sync with our state.
+  useEffect(() => {
+    currentChatRef.current = currentChat;
+  }, [currentChat]);
 
-  // 2. Fetch message history when a chat is selected
+  // This effect fetches message history ONLY when the user clicks on a new chat.
   useEffect(() => {
     const getMessages = async () => {
       if (currentChat) {
@@ -104,12 +112,10 @@ const Chat = ({ onLogout }) => {
     getMessages();
   }, [currentChat, currentUser]);
 
-
-  // 3. Scroll to new message
+  // This effect scrolls to the bottom when new messages arrive.
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
 
   // --- Handler Functions ---
   const handleSubmit = async (e) => {
@@ -130,7 +136,7 @@ const Chat = ({ onLogout }) => {
     setNotifications(prev => prev.filter(id => id !== user._id));
   };
 
-  // --- Render Logic ---
+  // --- Render Logic (This is where the Input component was missing) ---
   return (
     <Container maxW="container.xl" p={0} height="100vh">
       <Flex h="100vh">
