@@ -4,7 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Register from './pages/Register';
 import Login from './pages/Login'; 
 import Chat from './pages/Chat';
-
+import Profile from './pages/Profile'; // Import the Profile component
 function App() {
   // Simple check to see if we have a token
   const token = localStorage.getItem('token');
