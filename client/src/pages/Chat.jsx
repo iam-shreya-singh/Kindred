@@ -8,11 +8,11 @@ import { format } from 'timeago.js';
 import {
   Box, Button, VStack, HStack, Heading, Container, Text, Avatar, Spinner, Flex, Divider, Input
 } from '@chakra-ui/react';
-// Import our new socket helpers instead of the raw io client
-import { initiateSocketConnection, getSocket, disconnectSocket } from '../socket'; // <-- CHANGED
+import { initiateSocketConnection, getSocket, disconnectSocket } from '../socket';
 
-const Chat = () => {
-  // --- State (no changes here) ---
+// 1. Accept the `onLogout` function as a prop from App.jsx
+const Chat = ({ onLogout }) => {
+  // --- State ---
   const [users, setUsers] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -22,12 +22,12 @@ const Chat = () => {
   const [notifications, setNotifications] = useState([]);
 
   // --- Refs ---
-  const scrollRef = useRef(); // We no longer need the socket ref
+  const scrollRef = useRef();
   
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem('user'));
 
-  // --- useEffect Hooks: The Correct Structure ---
+  // --- useEffect Hooks ---
 
   // 1. Establish Socket Connection & Handle Online Users (runs only ONCE)
   useEffect(() => {
@@ -36,29 +36,25 @@ const Chat = () => {
       return;
     }
     
-    const socket = initiateSocketConnection(); // <-- CHANGED: Use our helper to connect
+    const socket = initiateSocketConnection();
 
     socket.emit("addUser", currentUser._id);
     socket.on("getUsers", (users) => {
       setOnlineUsers(users);
     });
     
-    // Disconnect when the component unmounts for good
     return () => {
-      disconnectSocket(); // <-- CHANGED: Use our helper to disconnect
+      disconnectSocket();
     };
   }, [currentUser, navigate]);
 
 
   // 2. Set up event listener for incoming messages
   useEffect(() => {
-    // We can't set this up until the socket is definitely connected.
-    // A simple check like this works.
     try {
-      const socket = getSocket(); // <-- CHANGED: Get the existing socket
+      const socket = getSocket();
       
       const messageListener = (data) => {
-        // Use functional updates to avoid dependency issues
         setCurrentChat(prevChat => {
           if (prevChat?._id === data.senderId) {
             setMessages((prevMsgs) => [...prevMsgs, { senderId: data.senderId, text: data.text, createdAt: Date.now() }]);
@@ -75,27 +71,59 @@ const Chat = () => {
       };
 
     } catch (error) {
-      // This will catch the error if the socket isn't ready, which is fine on first render.
       console.log("Socket not ready yet for message listener.");
     }
-  }, []); // <-- CHANGED: Empty dependency array ensures this runs once and uses functional updates.
+  }, []);
 
 
-  // --- The rest of the file has minor changes or is the same ---
-  // [No changes needed in useEffect #3, #4, #5]
-  useEffect(() => {const getUsers = async () => {try {const res = await axios.get("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/users"); setUsers(res.data.filter(u => u._id !== currentUser._id));} catch (err) {console.log(err);}}; if (currentUser) getUsers();}, [currentUser]);
-  useEffect(() => {const getMessages = async () => {if (currentChat) {const newConversationId = currentUser._id > currentChat._id ? currentUser._id + currentChat._id : currentChat._id + currentUser._id; setConversationId(newConversationId); try {const res = await axios.get(`https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/messages/${newConversationId}`); setMessages(res.data);} catch (err) {console.log(err);}}}; getMessages();}, [currentChat, currentUser]);
-  useEffect(() => {scrollRef.current?.scrollIntoView({ behavior: "smooth" });}, [messages]);
+  // 3. Fetch all potential users
+  useEffect(() => {
+    const getUsers = async () => {
+      try {
+        const res = await axios.get("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/users");
+        setUsers(res.data.filter(u => u._id !== currentUser._id));
+      } catch (err) {
+        console.log(err);
+      }
+    };
+    if (currentUser) getUsers();
+  }, [currentUser]);
+
+
+  // 4. Fetch message history when a chat is selected
+  useEffect(() => {
+    const getMessages = async () => {
+      if (currentChat) {
+        const newConversationId = currentUser._id > currentChat._id ? currentUser._id + currentChat._id : currentChat._id + currentUser._id;
+        setConversationId(newConversationId);
+        try {
+          const res = await axios.get(`https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/messages/${newConversationId}`);
+          setMessages(res.data);
+        } catch (err) {
+          console.log(err);
+        }
+      }
+    };
+    getMessages();
+  }, [currentChat, currentUser]);
+
+
+  // 5. Scroll to new message
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
 
   // --- Handler Functions ---
-  const handleLogout = () => { localStorage.clear(); navigate('/login'); };
+
+  // 2. We DELETE the handleLogout function from this file.
+  // const handleLogout = () => { localStorage.clear(); navigate('/login'); }; 
   
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentChat) return;
 
-    const socket = getSocket(); // <-- CHANGED: Get the existing socket instance
+    const socket = getSocket();
     
     const message = { senderId: currentUser._id, text: newMessage, conversationId: conversationId };
     socket.emit("sendMessage", { senderId: currentUser._id, receiverId: currentChat._id, text: newMessage });
@@ -109,12 +137,13 @@ const Chat = () => {
   
   const handleUserClick = (user) => { setCurrentChat(user); setNotifications(prev => prev.filter(id => id !== user._id)); };
 
-  // --- Render Logic (Added back the profile button) ---
+  // --- Render Logic ---
   return (
     <Container maxW="container.xl" p={0} height="100vh">
       <Flex h="100vh">
         <Box w="30%" bg="gray.50" p={4} borderRightWidth={1}>
-          <HStack justifyContent="space-between" mb={4}><Heading size="md">Welcome, {currentUser?.username}</Heading><Button size="sm" colorScheme="red" onClick={handleLogout}>Logout</Button></HStack>
+          {/* 3. The logout button now calls the `onLogout` function from props */}
+          <HStack justifyContent="space-between" mb={4}><Heading size="md">Welcome, {currentUser?.username}</Heading><Button size="sm" colorScheme="red" onClick={onLogout}>Logout</Button></HStack>
           <VStack spacing={2} align="stretch">
             {users.map(user => (
               <HStack key={user._id} p={3} borderRadius="md" bg={currentChat?._id === user._id ? "teal.100" : "transparent"} _hover={{ bg: "gray.200", cursor: "pointer" }} onClick={() => handleUserClick(user)} position="relative" justifyContent="space-between">

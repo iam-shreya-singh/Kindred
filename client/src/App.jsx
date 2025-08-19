@@ -11,11 +11,20 @@ function App() {
   // We now manage the token in React state, initialized from localStorage.
   const [token, setToken] = useState(localStorage.getItem('token'));
 
+
   // This function will be passed to the Login component.
   // When called, it updates both the state and localStorage.
   const handleLogin = (newToken) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
+  };
+  // ** 1. ADD THE NEW LOGOUT FUNCTION **
+  const handleLogout = () => {
+    // Clear everything from state and storage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user'); // Also clear the user object
+    setToken(null);
+    // The redirect will happen automatically because the token state is now null
   };
 
   // When the component loads, check localStorage once.
@@ -25,6 +34,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/" element={token ? <Chat onLogout={handleLogout} /> : <Navigate to="/login" />} />
       <Route path="/" element={token ? <Chat /> : <Navigate to="/login" />} />
       
       {/* Pass the handleLogin function as a prop to the Login component */}
