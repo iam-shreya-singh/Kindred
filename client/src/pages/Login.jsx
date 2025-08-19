@@ -7,7 +7,8 @@ import {
   Box, Button, Input, VStack, Heading, Container, FormControl, FormLabel, Text, Alert, AlertIcon, Link
 } from '@chakra-ui/react';
 
-const Login = () => {
+// <-- 1. Accept the `onLogin` function as a prop from App.jsx
+const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,18 +20,18 @@ const Login = () => {
 
     try {
       const url = "https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/users/login";
-      
-      // Make the login request
       const res = await axios.post(url, { username, password });
 
-      // ** IMPORTANT: Save the token **
-      // We are saving the JWT we received from the server in the browser's localStorage.
-      // This is how we'll stay logged in across page reloads.
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data)); // Store user details too
+      // ** IMPORTANT CHANGE **
+      // We still save the user details...
+      localStorage.setItem('user', JSON.stringify(res.data));
 
-      // Navigate to the main chat page (which we'll create next)
-      navigate('/');
+      // <-- 2. Call the onLogin function from App.jsx with the new token
+      // This is what tells the main app to update its state and trigger the redirect.
+      onLogin(res.data.token);
+      
+      // We no longer need `localStorage.setItem('token', ...)` or `navigate('/')` here.
+      // App.jsx now handles both of those things.
 
     } catch (err) {
       if (err.response && err.response.data) {
