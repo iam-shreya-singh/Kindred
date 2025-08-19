@@ -10,7 +10,15 @@ import {
 } from '@chakra-ui/react';
 import { initiateSocketConnection, getSocket, disconnectSocket } from '../socket';
 
-// 1. Accept the `onLogout` function as a prop from App.jsx
+// 1. The icebreakerPrompts array is correctly placed OUTSIDE the component.
+const icebreakerPrompts = [
+  "What's a small thing that brought you joy this week?",
+  "Is there a book, movie, or song that has deeply influenced you recently?",
+  "What's a skill you'd love to learn if you had the time?",
+  "If you could give your younger self one piece of advice, what would it be?",
+  "What's a topic you could talk about for hours?",
+];
+
 const Chat = ({ onLogout }) => {
   // --- State ---
   const [users, setUsers] = useState([]);
@@ -20,7 +28,9 @@ const Chat = ({ onLogout }) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversationId, setConversationId] = useState(null);
   const [notifications, setNotifications] = useState([]);
-
+  // 2. The new state variable for the prompt.
+  const [prompt, setPrompt] = useState(""); 
+  
   // --- Refs ---
   const scrollRef = useRef();
   
@@ -29,7 +39,7 @@ const Chat = ({ onLogout }) => {
 
   // --- useEffect Hooks ---
 
-  // 1. Establish Socket Connection & Handle Online Users (runs only ONCE)
+  // Establish Socket Connection & Handle Online Users
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
@@ -49,7 +59,7 @@ const Chat = ({ onLogout }) => {
   }, [currentUser, navigate]);
 
 
-  // 2. Set up event listener for incoming messages
+  // Set up event listener for incoming messages
   useEffect(() => {
     try {
       const socket = getSocket();
@@ -76,7 +86,7 @@ const Chat = ({ onLogout }) => {
   }, []);
 
 
-  // 3. Fetch all potential users
+  // Fetch all potential users
   useEffect(() => {
     const getUsers = async () => {
       try {
@@ -90,15 +100,21 @@ const Chat = ({ onLogout }) => {
   }, [currentUser]);
 
 
-  // 4. Fetch message history when a chat is selected
+  // 4. Fetch message history AND SET PROMPT (THIS BLOCK IS THE MAIN CHANGE)
   useEffect(() => {
     const getMessages = async () => {
       if (currentChat) {
+        setPrompt(""); // Clear previous prompt
         const newConversationId = currentUser._id > currentChat._id ? currentUser._id + currentChat._id : currentChat._id + currentUser._id;
         setConversationId(newConversationId);
         try {
           const res = await axios.get(`https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/messages/${newConversationId}`);
           setMessages(res.data);
+          // If the chat history is empty, set a random prompt
+          if (res.data.length === 0) {
+            const randomPrompt = icebreakerPrompts[Math.floor(Math.random() * icebreakerPrompts.length)];
+            setPrompt(randomPrompt);
+          }
         } catch (err) {
           console.log(err);
         }
@@ -108,17 +124,13 @@ const Chat = ({ onLogout }) => {
   }, [currentChat, currentUser]);
 
 
-  // 5. Scroll to new message
+  // Scroll to new message
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
 
   // --- Handler Functions ---
-
-  // 2. We DELETE the handleLogout function from this file.
-  // const handleLogout = () => { localStorage.clear(); navigate('/login'); }; 
-  
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentChat) return;
@@ -142,7 +154,6 @@ const Chat = ({ onLogout }) => {
     <Container maxW="container.xl" p={0} height="100vh">
       <Flex h="100vh">
         <Box w="30%" bg="gray.50" p={4} borderRightWidth={1}>
-          {/* 3. The logout button now calls the `onLogout` function from props */}
           <HStack justifyContent="space-between" mb={4}><Heading size="md">Welcome, {currentUser?.username}</Heading><Button size="sm" colorScheme="red" onClick={onLogout}>Logout</Button></HStack>
           <VStack spacing={2} align="stretch">
             {users.map(user => (
@@ -161,7 +172,16 @@ const Chat = ({ onLogout }) => {
           {currentChat ? (
             <>
               <Box p={4} bg="gray.100" borderBottomWidth={1}><Heading size="lg">{currentChat.username}</Heading></Box>
+              {/* THIS VSTACK BLOCK IS THE OTHER MAIN CHANGE */}
               <VStack flex="1" p={4} overflowY="auto" spacing={1} align="stretch">
+                {/* 5. ADD THE UI BLOCK FOR THE PROMPT */}
+                {prompt && (
+                  <Box p={4} bg="yellow.100" borderRadius="md" mb={4} textAlign="center">
+                    <Text fontSize="sm" color="gray.600" fontStyle="italic">New conversation? Try this icebreaker:</Text>
+                    <Text fontWeight="bold" mt={1}>{prompt}</Text>
+                  </Box>
+                )}
+                
                 {messages.map((m, index) => (<Flex key={index} ref={scrollRef} direction="column" alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}><Box bg={m.senderId === currentUser._id ? "teal.400" : "gray.200"} color={m.senderId === currentUser._id ? "white" : "black"} px={4} py={2} borderRadius="lg" maxW="md"><Text>{m.text}</Text></Box><Text fontSize="xs" color="gray.500" mt={1} alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}>{format(m.createdAt)}</Text></Flex>))}
               </VStack>
               <Box p={4} borderTopWidth={1}>
