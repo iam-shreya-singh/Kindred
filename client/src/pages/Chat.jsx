@@ -1,4 +1,4 @@
-// client/src/pages/Chat.jsx
+// client/src/pages/Chat.jsx - FINAL STABLE VERSION
 
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
@@ -10,7 +10,6 @@ import {
 } from '@chakra-ui/react';
 import { initiateSocketConnection, getSocket, disconnectSocket } from '../socket';
 
-// 1. The icebreakerPrompts array is correctly placed OUTSIDE the component.
 const icebreakerPrompts = [
   "What's a small thing that brought you joy this week?",
   "Is there a book, movie, or song that has deeply influenced you recently?",
@@ -28,103 +27,85 @@ const Chat = ({ onLogout }) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [conversationId, setConversationId] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  // 2. The new state variable for the prompt.
-  const [prompt, setPrompt] = useState(""); 
+  const [prompt, setPrompt] = useState("");
   
   // --- Refs ---
   const scrollRef = useRef();
-  
+  const currentChatRef = useRef(null); // Ref to hold current chat value for listeners
+
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem('user'));
 
+  // Keep the ref in sync with the state
+  useEffect(() => {
+    currentChatRef.current = currentChat;
+  }, [currentChat]);
+
   // --- useEffect Hooks ---
 
-  // Establish Socket Connection & Handle Online Users
+  // 1. Main Effect for Socket, Listeners, and User Fetching (runs ONCE)
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
       return;
     }
-    
+
     const socket = initiateSocketConnection();
 
-    socket.emit("addUser", currentUser._id);
     socket.on("getUsers", (users) => {
       setOnlineUsers(users);
     });
+
+    const messageListener = (data) => {
+      const activeChat = currentChatRef.current;
+      if (activeChat?._id === data.senderId) {
+        setMessages((prev) => [...prev, { senderId: data.senderId, text: data.text, createdAt: Date.now() }]);
+      } else {
+        setNotifications(prev => prev.includes(data.senderId) ? prev : [...prev, data.senderId]);
+      }
+    };
+    socket.on("getMessage", messageListener);
     
+    socket.emit("addUser", currentUser._id);
+
+    const getUsers = async () => {
+      try {
+        const res = await axios.get("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/users");
+        setUsers(res.data.filter(u => u._id !== currentUser._id));
+      } catch (err) { console.log(err); }
+    };
+    getUsers();
+
     return () => {
+      socket.off("getMessage", messageListener);
+      socket.off("getUsers");
       disconnectSocket();
     };
   }, [currentUser, navigate]);
 
 
-  // Set up event listener for incoming messages
-  useEffect(() => {
-    try {
-      const socket = getSocket();
-      
-      const messageListener = (data) => {
-        setCurrentChat(prevChat => {
-          if (prevChat?._id === data.senderId) {
-            setMessages((prevMsgs) => [...prevMsgs, { senderId: data.senderId, text: data.text, createdAt: Date.now() }]);
-          } else {
-            setNotifications(prevNotifs => prevNotifs.includes(data.senderId) ? prevNotifs : [...prevNotifs, data.senderId]);
-          }
-          return prevChat;
-        });
-      };
-      socket.on("getMessage", messageListener);
-
-      return () => {
-        socket.off("getMessage", messageListener);
-      };
-
-    } catch (error) {
-      console.log("Socket not ready yet for message listener.");
-    }
-  }, []);
-
-
-  // Fetch all potential users
-  useEffect(() => {
-    const getUsers = async () => {
-      try {
-        const res = await axios.get("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/users");
-        setUsers(res.data.filter(u => u._id !== currentUser._id));
-      } catch (err) {
-        console.log(err);
-      }
-    };
-    if (currentUser) getUsers();
-  }, [currentUser]);
-
-
-  // 4. Fetch message history AND SET PROMPT (THIS BLOCK IS THE MAIN CHANGE)
+  // 2. Fetch message history when a chat is selected
   useEffect(() => {
     const getMessages = async () => {
       if (currentChat) {
-        setPrompt(""); // Clear previous prompt
+        setPrompt("");
         const newConversationId = currentUser._id > currentChat._id ? currentUser._id + currentChat._id : currentChat._id + currentUser._id;
         setConversationId(newConversationId);
         try {
           const res = await axios.get(`https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/messages/${newConversationId}`);
           setMessages(res.data);
-          // If the chat history is empty, set a random prompt
           if (res.data.length === 0) {
             const randomPrompt = icebreakerPrompts[Math.floor(Math.random() * icebreakerPrompts.length)];
             setPrompt(randomPrompt);
           }
-        } catch (err) {
-          console.log(err);
-        }
+        } catch (err) { console.log(err); }
       }
     };
     getMessages();
   }, [currentChat, currentUser]);
 
 
-  // Scroll to new message
+  // 3. Scroll to new message
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -134,12 +115,9 @@ const Chat = ({ onLogout }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentChat) return;
-
     const socket = getSocket();
-    
     const message = { senderId: currentUser._id, text: newMessage, conversationId: conversationId };
     socket.emit("sendMessage", { senderId: currentUser._id, receiverId: currentChat._id, text: newMessage });
-    
     try {
       const res = await axios.post("https://bug-free-space-parakeet-jqg754q94jrc576w-3001.app.github.dev/api/messages", message);
       setMessages([...messages, res.data]);
@@ -147,7 +125,10 @@ const Chat = ({ onLogout }) => {
     } catch (err) { console.log(err); }
   };
   
-  const handleUserClick = (user) => { setCurrentChat(user); setNotifications(prev => prev.filter(id => id !== user._id)); };
+  const handleUserClick = (user) => {
+    setCurrentChat(user);
+    setNotifications(prev => prev.filter(id => id !== user._id));
+  };
 
   // --- Render Logic ---
   return (
@@ -172,21 +153,16 @@ const Chat = ({ onLogout }) => {
           {currentChat ? (
             <>
               <Box p={4} bg="gray.100" borderBottomWidth={1}><Heading size="lg">{currentChat.username}</Heading></Box>
-              {/* THIS VSTACK BLOCK IS THE OTHER MAIN CHANGE */}
               <VStack flex="1" p={4} overflowY="auto" spacing={1} align="stretch">
-                {/* 5. ADD THE UI BLOCK FOR THE PROMPT */}
-                {prompt && (
-                  <Box p={4} bg="yellow.100" borderRadius="md" mb={4} textAlign="center">
-                    <Text fontSize="sm" color="gray.600" fontStyle="italic">New conversation? Try this icebreaker:</Text>
-                    <Text fontWeight="bold" mt={1}>{prompt}</Text>
-                  </Box>
-                )}
-                
+                {prompt && (<Box p={4} bg="yellow.100" borderRadius="md" mb={4} textAlign="center"><Text fontSize="sm" color="gray.600" fontStyle="italic">New conversation? Try this icebreaker:</Text><Text fontWeight="bold" mt={1}>{prompt}</Text></Box>)}
                 {messages.map((m, index) => (<Flex key={index} ref={scrollRef} direction="column" alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}><Box bg={m.senderId === currentUser._id ? "teal.400" : "gray.200"} color={m.senderId === currentUser._id ? "white" : "black"} px={4} py={2} borderRadius="lg" maxW="md"><Text>{m.text}</Text></Box><Text fontSize="xs" color="gray.500" mt={1} alignSelf={m.senderId === currentUser._id ? 'flex-end' : 'flex-start'}>{format(m.createdAt)}</Text></Flex>))}
               </VStack>
               <Box p={4} borderTopWidth={1}>
                 <form onSubmit={handleSubmit}>
-                  <HStack><Input placeholder="Type something..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} /><Button type="submit" colorScheme="teal">Send</Button></HStack>
+                  <HStack>
+                    <Input placeholder="Type something..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Button type="submit" colorScheme="teal">Send</Button>
+                  </HStack>
                 </form>
               </Box>
             </>
